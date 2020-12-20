@@ -1,0 +1,41 @@
+[MASTER]
+ignore=.git
+load-plugins=
+    pylint.extensions.broad_try_clause,
+    pylint.extensions.emptystring,
+    pylint.extensions.bad_builtin,
+    pylint.extensions.mccabe,
+    pylint.extensions.docstyle,
+    pylint.extensions.check_elif,
+    pylint.extensions.overlapping_exceptions,
+    pylint.extensions.docparams
+max-line-length=240
+good-names=
+    T,
+    X,
+    Y,
+    U,
+    V
+
+[MESSAGE CONTROL]
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    wrong-import-order,
+    invalid-name,
+    too-few-public-methods,
+    too-many-try-statements,
+    too-many-function-args,
+    too-many-instance-attributes,
+    too-many-statements,
+    too-many-locals,
+    too-complex,
+    too-many-arguments,
+    unused-argument,
+    too-many-branches,
+    duplicate-code
+
+[SIMILARITIES]
+min-similarity-lines=4
+ignore-imports=yes
