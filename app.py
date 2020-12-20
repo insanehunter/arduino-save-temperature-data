@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from filelock import FileLock
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, make_response
 
 app = Flask(__name__)
 
@@ -22,7 +22,10 @@ def put_temperature():
 
 @app.route('/csv', methods=['GET'])
 def get_csv():
-    return send_file(DATABASE_PATH)
+    with FileLock(f'{DATABASE_PATH}.lock', timeout=1):
+        response = make_response(send_file(DATABASE_PATH))
+    response.headers['Content-Type'] = 'text/csv'
+    return response
 
 
 if __name__ == '__main__':
