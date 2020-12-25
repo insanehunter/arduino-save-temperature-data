@@ -1,11 +1,23 @@
 version: "3.5"
 services:
+  influxdb:
+    image: influxdb:1.8-alpine
+    volumes:
+      - influxdb:/var/lib/influxdb
+
+  chronograf:
+    build: ./chronograf
+    command: --influxdb-url=http://influxdb:8086 --htpasswd=/chronograf/.htpasswd
+    volumes:
+      - chronograf:/var/lib/chronograf
+    ports:
+      - 8088:8888
+
   backend:
     build: .
-    volumes:
-      - data:/app/data
     ports:
-        - 8080:5000
+      - 8080:5000
 
 volumes:
-  data:
+  influxdb:
+  chronograf:
