@@ -1,11 +1,14 @@
+import os
 from datetime import datetime, timedelta, timezone
 
 from dateutil import tz
 from flask import Flask, request
 from influxdb import InfluxDBClient
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
-influxdb = InfluxDBClient(database='temperatures')
+influxdb = InfluxDBClient(host=os.getenv('INFLUXDB_HOST', 'localhost'), database='temperatures')
 
 
 @app.route('/temperature', methods=['PUT'])
