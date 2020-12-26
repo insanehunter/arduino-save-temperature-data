@@ -43,7 +43,7 @@ def put_temperature():
     readings = influxdb.query('SELECT difference(value) FROM temperature ORDER BY time DESC LIMIT 10').get_points()
     differences = [-r['difference'] for r in readings]  # Negated because of DESC sorting in difference()
     median_diff = median(differences)
-    if median_diff <= -0.25 and max(differences) < 0.25:
+    if median_diff < 0 and max(differences) < 0.25:
         results = list(influxdb.query('SELECT * FROM alert ORDER BY time DESC LIMIT 1').get_points())
         if results and results[0]['status'] == 'on':
             return 'Ok (Alarm already started)'
