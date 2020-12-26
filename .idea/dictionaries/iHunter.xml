@@ -2,6 +2,7 @@
   <dictionary name="iHunter">
     <words>
       <w>influxdb</w>
+      <w>pushsafer</w>
     </words>
   </dictionary>
 </component>
