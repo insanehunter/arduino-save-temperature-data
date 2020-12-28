@@ -40,10 +40,16 @@ def put_temperature():
     influxdb.write_points(data_points, protocol='line', time_precision='ms')
 
     # Checking for alarm
-    readings = influxdb.query('SELECT difference(value) FROM temperature ORDER BY time DESC LIMIT 10').get_points()
-    differences = [-r['difference'] for r in readings]  # Negated because of DESC sorting in difference()
-    median_diff = median(differences)
-    if median_diff < 0 and max(differences) < 0.25:
+    readings = influxdb.query(
+        'SELECT (EXPONENTIAL_MOVING_AVERAGE(value, 1) - EXPONENTIAL_MOVING_AVERAGE(value, 10)) AS difference'
+        ' FROM temperatures.autogen.temperature WHERE time > now()-15m'
+    ).get_points()
+    if not readings:
+        return 'Ok (No data?)'
+
+    last_difference = readings[-1]['difference']
+    max_difference = max([r['difference'] for r in readings][-10:])
+    if max_difference < 0:
         results = list(influxdb.query('SELECT * FROM alert ORDER BY time DESC LIMIT 1').get_points())
         if results and results[0]['status'] == 'on':
             return 'Ok (Alarm already started)'
@@ -54,9 +60,9 @@ def put_temperature():
             if datetime.now().astimezone(tz.tzlocal()) - timestamp < timedelta(minutes=5):
                 return 'Ok (Alarm muted)'
 
-        influxdb.write_points([f'alert,status=on median_diff={median_diff}'], protocol='line', time_precision='ms')
+        influxdb.write_points([f'alert,status=on last_diff={last_difference}'], protocol='line', time_precision='ms')
         post_fields = {
-            'm': f'Пора проверить печку, ΔT={median_diff}°C',
+            'm': f'Пора проверить печку, ΔT={last_difference}°C',
             's': 8,  # Buzzer
             'i': 83,  # House with fire icon
             'd': 'a',  # All devices
@@ -68,8 +74,8 @@ def put_temperature():
             raise Exception(f'Failed to send alert notification: {response}')
         return 'Ok (Alarm!)'
 
-    influxdb.write_points([f'alert,status=off median_diff={median_diff}'], protocol='line', time_precision='ms')
-    return f'Ok (median {median_diff}, max {max(differences)})'
+    influxdb.write_points([f'alert,status=off last_diff={last_difference}'], protocol='line', time_precision='ms')
+    return f'Ok (last {last_difference}, max {max_difference})'
 
 
 @app.route('/status', methods=['GET'])
