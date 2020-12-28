@@ -40,10 +40,10 @@ def put_temperature():
     influxdb.write_points(data_points, protocol='line', time_precision='ms')
 
     # Checking for alarm
-    readings = influxdb.query(
+    readings = list(influxdb.query(
         'SELECT (EXPONENTIAL_MOVING_AVERAGE(value, 1) - EXPONENTIAL_MOVING_AVERAGE(value, 10)) AS difference'
         ' FROM temperatures.autogen.temperature WHERE time > now()-15m'
-    ).get_points()
+    ).get_points())
     if not readings:
         return 'Ok (No data?)'
 
