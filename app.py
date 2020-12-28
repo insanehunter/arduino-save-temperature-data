@@ -15,31 +15,7 @@ app = Flask(__name__)
 influxdb = InfluxDBClient(host=os.getenv('INFLUXDB_HOST', 'localhost'), database='temperatures')
 
 
-def median(numbers):
-    numbers = sorted(numbers)
-    mid_index = len(numbers) // 2
-    return (numbers[mid_index] + numbers[mid_index - 1]) / 2 if len(numbers) % 2 == 0 else numbers[mid_index]
-
-
-@app.route('/temperature', methods=['PUT'])
-def put_temperature():
-    temperatures = sorted(request.json['median_temps'].items(), key=lambda x: x[0], reverse=True)
-    now = datetime.now().timestamp()
-
-    # Writing data
-    latest_clock_time = None
-    data_points = []
-    for key, temperature in temperatures:
-        epoch, clock_time = key.split('_')
-        clock_time = int(epoch) * (2 ** 32) + int(clock_time)
-        if latest_clock_time is None:
-            latest_clock_time = clock_time
-        timestamp = int(now * 1000 - (latest_clock_time - clock_time))
-        data_points.append(f'temperature value={temperature} {timestamp}')
-    data_points.reverse()
-    influxdb.write_points(data_points, protocol='line', time_precision='ms')
-
-    # Checking for alarm
+def check_alert():
     readings = list(influxdb.query(
         'SELECT (EXPONENTIAL_MOVING_AVERAGE(value, 1) - EXPONENTIAL_MOVING_AVERAGE(value, 10)) AS difference'
         ' FROM temperatures.autogen.temperature WHERE time > now()-15m'
@@ -76,6 +52,31 @@ def put_temperature():
 
     influxdb.write_points([f'alert,status=off last_diff={last_difference}'], protocol='line', time_precision='ms')
     return f'Ok (last {last_difference}, max {max_difference})'
+
+
+@app.route('/temperature', methods=['PUT'])
+def put_temperature():
+    temperatures = sorted(request.json['median_temps'].items(), key=lambda x: x[0], reverse=True)
+    now = datetime.now().timestamp()
+
+    # Writing data
+    latest_clock_time = None
+    data_points = []
+    for key, temperature in temperatures:
+        epoch, clock_time = key.split('_')
+        clock_time = int(epoch) * (2 ** 32) + int(clock_time)
+        if latest_clock_time is None:
+            latest_clock_time = clock_time
+        timestamp = int(now * 1000 - (latest_clock_time - clock_time))
+        data_points.append(f'temperature value={temperature} {timestamp}')
+    data_points.reverse()
+    influxdb.write_points(data_points, protocol='line', time_precision='ms')
+    return check_alert()
+
+
+@app.route('/check', methods=['POST'])
+def check():
+    return check_alert()
 
 
 @app.route('/status', methods=['GET'])
