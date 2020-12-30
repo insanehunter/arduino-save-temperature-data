@@ -29,7 +29,7 @@ def check_alert():
 
         influxdb.write_points([f'alert,status=on diff={difference}'], protocol='line', time_precision='ms')
         for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
-            requests.post(
+            response = requests.post(
                 f'https://api.telegram.org/bot{os.getenv("TELEGRAM_BOT_TOKEN")}/sendMessage',
                 data={
                     'chat_id': chat_id,
@@ -37,6 +37,7 @@ def check_alert():
                     'text': f'⚠ *Проверь печку!*\n'
                             f'За последние 5 минут температура упала на {-difference:.2f}°C'
                 })
+            print(response.json())
         return 'Ok (Alarm!)'
 
     influxdb.write_points([f'alert,status=off diff={difference}'], protocol='line', time_precision='ms')
