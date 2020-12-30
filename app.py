@@ -27,19 +27,13 @@ def check_alert():
         if results and results[0]['status'] == 'on':
             return 'Ok (Alarm already started)'
 
-        if results and results[0]['status'] == 'off':
-            timestamp_str = results[0]['time']
-            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
-            if datetime.now().astimezone(tz.tzlocal()) - timestamp < timedelta(minutes=5):
-                return 'Ok (Alarm silenced due to being recently triggered)'
-
         influxdb.write_points([f'alert,status=on diff={difference}'], protocol='line', time_precision='ms')
         for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
             requests.post(
                 f'https://api.telegram.org/bot{os.getenv("TELEGRAM_BOT_TOKEN")}/sendMessage',
                 data={
                     'chat_id': chat_id,
-                    'text': f'⚠ Проверь печку!\n'
+                    'text': f'⚠ *Проверь печку!*\n'
                             f'За последние 5 минут температура упала на {-difference:.2f}°C'
                 })
         return 'Ok (Alarm!)'
