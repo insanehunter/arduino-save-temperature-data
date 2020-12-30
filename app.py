@@ -45,7 +45,7 @@ def check_alert():
         return 'Ok (Alarm!)'
 
     influxdb.write_points([f'alert,status=off diff={difference}'], protocol='line', time_precision='ms')
-    return f'Ok (ΔT={difference:.2f}°C)'.encode('utf-8')
+    return f'Ok (dT={difference:.2f})'
 
 
 @app.route('/temperature', methods=['PUT'])
