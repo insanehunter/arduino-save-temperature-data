@@ -27,17 +27,16 @@ def check_alert():
         if results and results[0]['status'] == 'on':
             return 'Ok (Alarm already started)'
 
-        influxdb.write_points([f'alert,status=on diff={difference}'], protocol='line', time_precision='ms')
         for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
-            response = requests.post(
+            requests.post(
                 f'https://api.telegram.org/bot{os.getenv("TELEGRAM_BOT_TOKEN")}/sendMessage',
                 data={
                     'chat_id': chat_id,
-                    'parse_mode': 'MarkdownV2',
+                    'parse_mode': 'markdown',
                     'text': f'⚠ *Проверь печку!*\n'
                             f'За последние 5 минут температура упала на {-difference:.2f}°C'
                 })
-            print(response.json())
+        influxdb.write_points([f'alert,status=on diff={difference}'], protocol='line', time_precision='ms')
         return 'Ok (Alarm!)'
 
     influxdb.write_points([f'alert,status=off diff={difference}'], protocol='line', time_precision='ms')
