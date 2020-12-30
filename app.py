@@ -1,9 +1,7 @@
-import json
 import os
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
+import requests
 from dateutil import tz
 from dotenv import load_dotenv
 from flask import Flask, request
@@ -16,16 +14,15 @@ influxdb = InfluxDBClient(host=os.getenv('INFLUXDB_HOST', 'localhost'), database
 
 
 def check_alert():
-    readings = list(influxdb.query(
-        'SELECT (EXPONENTIAL_MOVING_AVERAGE(value, 1) - EXPONENTIAL_MOVING_AVERAGE(value, 10)) AS difference'
-        ' FROM temperatures.autogen.temperature WHERE time > now()-15m'
+    emas = list(influxdb.query(
+        'SELECT EXPONENTIAL_MOVING_AVERAGE(value, 5) AS ema'
+        ' FROM temperatures.autogen.temperature WHERE time > now()-5m'
     ).get_points())
-    if not readings:
+    if not emas:
         return 'Ok (No data?)'
 
-    last_difference = readings[-1]['difference']
-    max_difference = max([r['difference'] for r in readings][-10:])
-    if max_difference < 0:
+    difference = emas[-1]['ema'] - emas[0]['ema']
+    if difference < 0:
         results = list(influxdb.query('SELECT * FROM alert ORDER BY time DESC LIMIT 1').get_points())
         if results and results[0]['status'] == 'on':
             return 'Ok (Alarm already started)'
@@ -36,22 +33,16 @@ def check_alert():
             if datetime.now().astimezone(tz.tzlocal()) - timestamp < timedelta(minutes=5):
                 return 'Ok (Alarm muted)'
 
-        influxdb.write_points([f'alert,status=on last_diff={last_difference}'], protocol='line', time_precision='ms')
-        post_fields = {
-            'm': f'Пора проверить печку, ΔT={last_difference}°C',
-            's': 8,  # Buzzer
-            'i': 83,  # House with fire icon
-            'd': 'a',  # All devices
-            'k': os.getenv('PUSHSAFER_SECRET_KEY')
-        }
-        req = Request('https://www.pushsafer.com/api', urlencode(post_fields).encode())
-        response = json.loads(urlopen(req).read().decode())
-        if response['status'] != 1:
-            raise Exception(f'Failed to send alert notification: {response}')
+        influxdb.write_points([f'alert,status=on diff={difference}'], protocol='line', time_precision='ms')
+        for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
+            requests.post(
+                f'https://api.telegram.org/bot{os.getenv("TELEGRAM_BOT_TOKEN")}/sendMessage',
+                data={'chat_id': chat_id, 'text': f'Пора проверить печку, ΔT={difference:.2f}°C'}
+            )
         return 'Ok (Alarm!)'
 
-    influxdb.write_points([f'alert,status=off last_diff={last_difference}'], protocol='line', time_precision='ms')
-    return f'Ok (last {last_difference}, max {max_difference})'
+    influxdb.write_points([f'alert,status=off diff={difference}'], protocol='line', time_precision='ms')
+    return f'Ok (ΔT={difference:.2f}°C)'
 
 
 @app.route('/temperature', methods=['PUT'])
