@@ -33,6 +33,7 @@ def check_alert():
                 f'https://api.telegram.org/bot{os.getenv("TELEGRAM_BOT_TOKEN")}/sendMessage',
                 data={
                     'chat_id': chat_id,
+                    'parse_mode': 'MarkdownV2',
                     'text': f'⚠ *Проверь печку!*\n'
                             f'За последние 5 минут температура упала на {-difference:.2f}°C'
                 })
