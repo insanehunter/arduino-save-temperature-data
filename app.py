@@ -22,13 +22,13 @@ MESSAGE_START_NOTIFICATIONS = '🔔 Хочу следить за печкой'
 def check_alert():
     emas = list(influxdb.query(
         'SELECT EXPONENTIAL_MOVING_AVERAGE(value, 5) AS ema'
-        ' FROM temperatures.autogen.temperature WHERE time > now()-7m'
+        ' FROM temperatures.autogen.temperature WHERE time > now()-5m'
     ).get_points())
     if not emas:
         return 'Ok (No data?)'
 
     difference = emas[-1]['ema'] - emas[0]['ema']
-    max_diff = max([emas[i + 1]['ema'] - emas[i]['ema'] for i in range(len(emas) - 1)])
+    max_diff = max([emas[i + 1]['ema'] - emas[0]['ema'] for i in range(len(emas) - 1)])
     if difference < 0 and max_diff < 0:
         results = list(influxdb.query('SELECT * FROM alert ORDER BY time DESC LIMIT 1').get_points())
         if results and results[0]['status'] == 'on':
