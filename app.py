@@ -33,7 +33,8 @@ def check_alert():
         results = list(influxdb.query(
             'SELECT * FROM temperatures.autogen.alert ORDER BY time DESC LIMIT 1').get_points())
         if results and results[0]['status'] == 'on':
-            return 'Ok (Alarm already started)'
+            emas_str = ",".join([f'{e["ema"]:.2f}' for e in emas])
+            return f'Ok (Alarm already started, {emas_str})'
 
         for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
             results = list(influxdb.query(
