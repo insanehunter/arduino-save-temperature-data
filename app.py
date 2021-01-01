@@ -31,8 +31,8 @@ def check_alert():
     alert_results = list(influxdb.query(
         'SELECT * FROM temperatures.autogen.alert ORDER BY time DESC LIMIT 1').get_points())
     difference = emas[-1]['ema'] - emas[0]['ema']
-    max_diff = max([emas[i + 1]['ema'] - emas[0]['ema'] for i in range(len(emas) - 1)])
-    if difference < 0 and max_diff < 0:
+    max_diff = max([emas[i + 1]['ema'] - emas[i]['ema'] for i in range(len(emas) - 1)])
+    if difference < 0 and max_diff <= 0:
         if alert_results and alert_results[0]['status'] == 'on':
             emas_str = ",".join([f'{e["ema"]:.2f}' for e in emas])
             return f'Ok (Alarm already started, {emas_str})'
