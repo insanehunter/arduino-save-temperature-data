@@ -30,12 +30,15 @@ def check_alert():
     difference = emas[-1]['ema'] - emas[0]['ema']
     max_diff = max([emas[i + 1]['ema'] - emas[0]['ema'] for i in range(len(emas) - 1)])
     if difference < 0 and max_diff < 0:
-        results = list(influxdb.query('SELECT * FROM alert ORDER BY time DESC LIMIT 1').get_points())
+        results = list(influxdb.query(
+            'SELECT * FROM temperatures.autogen.alert ORDER BY time DESC LIMIT 1').get_points())
         if results and results[0]['status'] == 'on':
             return 'Ok (Alarm already started)'
 
         for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
-            results = list(influxdb.query('SELECT * FROM watcher ORDER BY time DESC LIMIT 1').get_points())
+            results = list(influxdb.query(
+                'SELECT * FROM temperatures.autogen.watcher'
+                ' WHERE chat_id=$chat_id ORDER BY time DESC LIMIT 1', {'chat_id': str(chat_id)}).get_points())
             if not results or results[-1]['status'] != 'off':
                 updater.bot.send_message(
                     chat_id, f'⚠ *Проверь печку!*\nЗа последние 5 минут температура упала на {-difference:.2f}°C',
@@ -78,7 +81,8 @@ def check():
 
 @app.route('/status', methods=['GET'])
 def status():
-    timestamp_str = next(influxdb.query('SELECT * FROM temperature ORDER BY time DESC LIMIT 1').get_points())['time']
+    timestamp_str = next(influxdb.query(
+        'SELECT * FROM temperatures.autogen.temperature ORDER BY time DESC LIMIT 1').get_points())['time']
     timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
     time_passed = datetime.now().astimezone(tz.tzlocal()) - timestamp
     if time_passed > timedelta(minutes=15):
@@ -92,7 +96,7 @@ def on_message(update, context):
         context.bot.send_message(chat_id=chat_id, text='Ты кто такой? Давай до свидания!')
         return
     if update.message.text == MESSAGE_STOP_NOTIFICATIONS:
-        influxdb.write_points(['watcher,status=off value=0'], protocol='line', time_precision='ms')
+        influxdb.write_points(['watcher,status=off,chat_id={chat_id} value=0'], protocol='line', time_precision='ms')
         context.bot.send_message(
             chat_id=chat_id, text='Ок! Больше не буду беспокоить.',
             reply_markup=ReplyKeyboardMarkup(
@@ -100,7 +104,7 @@ def on_message(update, context):
                 resize_keyboard=True, one_time_keyboard=True
             ))
     elif update.message.text == MESSAGE_START_NOTIFICATIONS:
-        influxdb.write_points(['watcher,status=on value=0'], protocol='line', time_precision='ms')
+        influxdb.write_points([f'watcher,status=on,chat_id={chat_id} value=0'], protocol='line', time_precision='ms')
         context.bot.send_message(
             chat_id=chat_id, text='Ок! Если она начнет остывать, я тебе сообщу.',
             reply_markup=ReplyKeyboardMarkup(
