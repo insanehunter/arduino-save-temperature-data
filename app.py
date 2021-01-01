@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timedelta, timezone
 
+import requests
 from dateutil import tz
 from dotenv import load_dotenv
 from flask import Flask, request
@@ -42,18 +43,27 @@ def check_alert():
             if datetime.now().astimezone(tz.tzlocal()) - timestamp < timedelta(minutes=5):
                 return 'Ok (Alarm suppressed - not enough time passed since previous one)'
 
+        chat_ids_to_send = []
         for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
             results = list(influxdb.query(
                 'SELECT * FROM temperatures.autogen.watcher'
                 ' WHERE chat_id = \'$chat_id\' ORDER BY time DESC LIMIT 1', {'chat_id': str(chat_id)}).get_points())
             if not results or results[-1]['status'] != 'off':
-                updater.bot.send_message(
-                    chat_id, f'⚠ *Проверь печку!*\nЗа последние 5 минут температура упала на {-difference:.2f}°C',
+                chat_ids_to_send.append(chat_id)
+
+        if chat_ids_to_send:
+            response = requests.get(f'https://api.giphy.com/v1/gifs/random'
+                                    f'?api_key={os.getenv("GIPHY_API_KEY")}&tag=cold%20fire&rating=g')
+            gif_url = response.json()['data']['image_mp4_url']
+            for chat_id in chat_ids_to_send:
+                updater.bot.send_animation(
+                    chat_id, gif_url, caption='⚠️ *Пора проверить печку!*',
                     parse_mode='Markdown', reply_markup=ReplyKeyboardMarkup(
                         [[KeyboardButton(MESSAGE_STOP_NOTIFICATIONS)]],
                         resize_keyboard=True, one_time_keyboard=True
                     )
                 )
+
         influxdb.write_points([f'alert,status=on diff={difference}'], protocol='line', time_precision='ms')
         return 'Ok (Alarm!)'
 
