@@ -28,20 +28,21 @@ def check_alert():
     if not emas:
         return 'Ok (No data?)'
 
+    alert_results = list(influxdb.query(
+        'SELECT * FROM temperatures.autogen.alert ORDER BY time DESC LIMIT 1').get_points())
     difference = emas[-1]['ema'] - emas[0]['ema']
     max_diff = max([emas[i + 1]['ema'] - emas[0]['ema'] for i in range(len(emas) - 1)])
     if difference < 0 and max_diff < 0:
-        results = list(influxdb.query(
-            'SELECT * FROM temperatures.autogen.alert ORDER BY time DESC LIMIT 1').get_points())
-        if results and results[0]['status'] == 'on':
+        if alert_results and alert_results[0]['status'] == 'on':
             emas_str = ",".join([f'{e["ema"]:.2f}' for e in emas])
             return f'Ok (Alarm already started, {emas_str})'
 
-        if results and results[0]['status'] == 'off':
-            timestamp_str = results[0]['time']
+        if alert_results and alert_results[0]['status'] == 'off':
+            timestamp_str = alert_results[0]['time']
             timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
-            if datetime.now().astimezone(tz.tzlocal()) - timestamp < timedelta(minutes=5):
-                return 'Ok (Alarm suppressed - not enough time passed since previous one)'
+            delta = datetime.now().astimezone(tz.tzlocal()) - timestamp
+            if delta < timedelta(minutes=5):
+                return f'Ok (Alarm suppressed - not enough time passed since previous one: {delta})'
 
         chat_ids_to_send = []
         for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
@@ -67,7 +68,8 @@ def check_alert():
         influxdb.write_points([f'alert,status=on diff={difference}'], protocol='line', time_precision='ms')
         return 'Ok (Alarm!)'
 
-    influxdb.write_points([f'alert,status=off diff={difference}'], protocol='line', time_precision='ms')
+    if alert_results and alert_results[0]['status'] == 'on':
+        influxdb.write_points([f'alert,status=off diff={difference}'], protocol='line', time_precision='ms')
     return f'Ok (dT={difference:.2f})'
 
 
