@@ -38,7 +38,7 @@ def check_alert():
         for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
             results = list(influxdb.query(
                 'SELECT * FROM temperatures.autogen.watcher'
-                ' WHERE chat_id=$chat_id ORDER BY time DESC LIMIT 1', {'chat_id': str(chat_id)}).get_points())
+                ' WHERE chat_id = \'$chat_id\' ORDER BY time DESC LIMIT 1', {'chat_id': str(chat_id)}).get_points())
             if not results or results[-1]['status'] != 'off':
                 updater.bot.send_message(
                     chat_id, f'⚠ *Проверь печку!*\nЗа последние 5 минут температура упала на {-difference:.2f}°C',
