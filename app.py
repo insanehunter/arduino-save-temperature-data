@@ -36,6 +36,12 @@ def check_alert():
             emas_str = ",".join([f'{e["ema"]:.2f}' for e in emas])
             return f'Ok (Alarm already started, {emas_str})'
 
+        if results and results[0]['status'] == 'off':
+            timestamp_str = results[0]['time']
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+            if datetime.now().astimezone(tz.tzlocal()) - timestamp < timedelta(minutes=5):
+                return 'Ok (Alarm suppressed - not enough time passed since previous one)'
+
         for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
             results = list(influxdb.query(
                 'SELECT * FROM temperatures.autogen.watcher'
