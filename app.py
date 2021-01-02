@@ -60,7 +60,7 @@ def check_alert():
                 chat_ids_to_send.append(chat_id)
 
         if chat_ids_to_send:
-            response = requests.get(f'https://api.giphy.com/v1/gifs/random?api_key={os.getenv("GIPHY_API_KEY")}')
+            response = requests.get(f'https://api.giphy.com/v1/gifs/random?api_key={os.getenv("GIPHY_API_KEY")}&tag=go')
             gif_url = response.json()['data']['image_mp4_url']
             for chat_id in chat_ids_to_send:
                 updater.bot.send_animation(
