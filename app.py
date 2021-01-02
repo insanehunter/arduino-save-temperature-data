@@ -55,7 +55,7 @@ def check_alert():
         for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
             results = list(influxdb.query(
                 'SELECT * FROM temperatures.autogen.watcher'
-                ' WHERE chat_id = \'$chat_id\' ORDER BY time DESC LIMIT 1', {'chat_id': str(chat_id)}).get_points())
+                f' WHERE chat_id=\'{chat_id}\' ORDER BY time DESC LIMIT 1').get_points())
             if not results or results[-1]['status'] != 'off':
                 chat_ids_to_send.append(chat_id)
 
@@ -171,12 +171,12 @@ def on_message(update, context):
 
         results = list(influxdb.query(
             'SELECT * FROM temperatures.autogen.watcher'
-            ' WHERE chat_id = \'$chat_id\' ORDER BY time DESC LIMIT 1', {'chat_id': chat_id}).get_points())
+            f' WHERE chat_id=\'{chat_id}\' ORDER BY time DESC LIMIT 1').get_points())
         notif_button = MESSAGE_STOP_NOTIFICATIONS if not results or results[-1]['status'] != 'off' \
             else MESSAGE_START_NOTIFICATIONS
 
         updater.bot.send_animation(
-            chat_id, gif_url, caption=str(results),
+            chat_id, gif_url, caption=message + ' ' + str(results),
             reply_markup=ReplyKeyboardMarkup(
                 [[KeyboardButton(MESSAGE_CHECK)],
                  [KeyboardButton(notif_button)]],
