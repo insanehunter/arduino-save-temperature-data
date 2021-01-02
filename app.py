@@ -169,7 +169,7 @@ def on_message(update, context):
         message = '😒 Как на этой картинке.' if furnace_status == FurnaceStatus.INCOMPREHENSIBLE else \
             '🔥 Разгорается.' if furnace_status == FurnaceStatus.HEATING_UP else '❄ Остывает.'
         temperature = emas[-1]['ema'] + THERMOCOUPLE_OFFSET
-        message += f' Температура - {temperature}°C.'
+        message += f' Температура - {temperature:.1f}°C.'
         response = requests.get(f'https://api.giphy.com/v1/gifs/random?api_key={os.getenv("GIPHY_API_KEY")}&tag={tag}')
         gif_url = response.json()['data']['image_mp4_url']
 
