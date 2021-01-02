@@ -176,8 +176,8 @@ def on_message(update, context):
             else MESSAGE_START_NOTIFICATIONS
 
         updater.bot.send_animation(
-            chat_id, gif_url, caption=message + ' ' + str(results),
-            parse_mode='Markdown', reply_markup=ReplyKeyboardMarkup(
+            chat_id, gif_url, caption=str(results),
+            reply_markup=ReplyKeyboardMarkup(
                 [[KeyboardButton(MESSAGE_CHECK)],
                  [KeyboardButton(notif_button)]],
                 resize_keyboard=True, one_time_keyboard=True
