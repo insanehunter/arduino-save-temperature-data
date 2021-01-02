@@ -70,7 +70,8 @@ def check_alert():
 
     if alert_results and alert_results[0]['status'] == 'on':
         influxdb.write_points([f'alert,status=off diff={difference}'], protocol='line', time_precision='ms')
-    return f'Ok (dT={difference:.2f})'
+    emas_str = ",".join([f'{e["ema"]:.2f}' for e in emas])
+    return f'Ok (dT={difference:.2f, {emas_str}})'
 
 
 @app.route('/temperature', methods=['PUT'])
@@ -115,7 +116,7 @@ def on_message(update, context):
         context.bot.send_message(chat_id=chat_id, text='Ты кто такой? Давай до свидания!')
         return
     if update.message.text == MESSAGE_STOP_NOTIFICATIONS:
-        influxdb.write_points(['watcher,status=off,chat_id={chat_id} value=0'], protocol='line', time_precision='ms')
+        influxdb.write_points([f'watcher,status=off,chat_id={chat_id} value=0'], protocol='line', time_precision='ms')
         context.bot.send_message(
             chat_id=chat_id, text='Ок! Больше не буду беспокоить.',
             reply_markup=ReplyKeyboardMarkup(
