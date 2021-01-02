@@ -1,7 +1,10 @@
 import os
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 
+import numpy as np
 import requests
+import statsmodels.api as sm
 from dateutil import tz
 from dotenv import load_dotenv
 from flask import Flask, request
@@ -18,6 +21,7 @@ updater = Updater(token=os.getenv('TELEGRAM_BOT_TOKEN'), use_context=True)
 
 MESSAGE_STOP_NOTIFICATIONS = '🔕 Больше не хочу следить за печкой'
 MESSAGE_START_NOTIFICATIONS = '🔔 Хочу следить за печкой'
+MESSAGE_CHECK = '❕ Как там печка?'
 
 
 def check_alert():
@@ -30,12 +34,15 @@ def check_alert():
 
     alert_results = list(influxdb.query(
         'SELECT * FROM temperatures.autogen.alert ORDER BY time DESC LIMIT 1').get_points())
-    difference = emas[-1]['ema'] - emas[0]['ema']
-    max_diff = max([emas[i + 1]['ema'] - emas[i]['ema'] for i in range(len(emas) - 1)])
-    if difference < 0 and max_diff <= 0:
+    ys = np.array([e['ema'] for e in emas])
+    xs = sm.add_constant(np.array(range(ys.size)), prepend=False)
+    result = sm.OLS(ys, xs).fit()
+    if result.rsquared > 0.8 and result.conf_int()[0][1] < 0:
         if alert_results and alert_results[0]['status'] == 'on':
             emas_str = ",".join([f'{e["ema"]:.2f}' for e in emas])
-            return f'Ok (Alarm already started, {emas_str})'
+            return f'Ok (Alarm already started, R-sq={result.rsquared:.2f},' \
+                   f' beta={result.conf_int()[0][0]:.2f}..{result.conf_int()[0][1]:.2f},' \
+                   f' data=[{emas_str}])'
 
         if alert_results and alert_results[0]['status'] == 'off':
             timestamp_str = alert_results[0]['time']
@@ -59,18 +66,20 @@ def check_alert():
                 updater.bot.send_animation(
                     chat_id, gif_url, caption='⚠️ *Пора проверить печку!*',
                     parse_mode='Markdown', reply_markup=ReplyKeyboardMarkup(
-                        [[KeyboardButton(MESSAGE_STOP_NOTIFICATIONS)]],
+                        [[KeyboardButton(MESSAGE_CHECK)],
+                         [KeyboardButton(MESSAGE_STOP_NOTIFICATIONS)]],
                         resize_keyboard=True, one_time_keyboard=True
                     )
                 )
 
-        influxdb.write_points([f'alert,status=on diff={difference}'], protocol='line', time_precision='ms')
+        influxdb.write_points(['alert,status=on value=0'], protocol='line', time_precision='ms')
         return 'Ok (Alarm!)'
 
     if alert_results and alert_results[0]['status'] == 'on':
-        influxdb.write_points([f'alert,status=off diff={difference}'], protocol='line', time_precision='ms')
+        influxdb.write_points(['alert,status=off value=0'], protocol='line', time_precision='ms')
     emas_str = ",".join([f'{e["ema"]:.2f}' for e in emas])
-    return f'Ok (dT={difference:.2f}, {emas_str})'
+    return f'Ok (R-sq={result.rsquared:.2f}, beta={result.conf_int()[0][0]:.2f}..{result.conf_int()[0][1]:.2f},' \
+           f' data=[{emas_str}])'
 
 
 @app.route('/temperature', methods=['PUT'])
@@ -109,6 +118,12 @@ def status():
     return f'Ok (last data received {time_passed.seconds // 60}m ago)'
 
 
+class FurnaceStatus(Enum):
+    HEATING_UP = 'HEATING_UP'
+    COOLING_DOWN = 'COOLING_DOWN'
+    INCOMPREHENSIBLE = 'INCOMPREHENSIBLE'
+
+
 def on_message(update, context):
     chat_id = str(update.effective_chat.id)
     if chat_id not in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
@@ -119,7 +134,8 @@ def on_message(update, context):
         context.bot.send_message(
             chat_id=chat_id, text='Ок! Больше не буду беспокоить.',
             reply_markup=ReplyKeyboardMarkup(
-                [[KeyboardButton(MESSAGE_START_NOTIFICATIONS)]],
+                [[KeyboardButton(MESSAGE_CHECK)],
+                 [KeyboardButton(MESSAGE_START_NOTIFICATIONS)]],
                 resize_keyboard=True, one_time_keyboard=True
             ))
     elif update.message.text == MESSAGE_START_NOTIFICATIONS:
@@ -127,9 +143,45 @@ def on_message(update, context):
         context.bot.send_message(
             chat_id=chat_id, text='Ок! Если она начнет остывать, я тебе сообщу.',
             reply_markup=ReplyKeyboardMarkup(
-                [[KeyboardButton(MESSAGE_STOP_NOTIFICATIONS)]],
+                [[KeyboardButton(MESSAGE_CHECK)],
+                 [KeyboardButton(MESSAGE_STOP_NOTIFICATIONS)]],
                 resize_keyboard=True, one_time_keyboard=True
             ))
+    elif update.message.text == MESSAGE_CHECK:
+        emas = list(influxdb.query(
+            'SELECT EXPONENTIAL_MOVING_AVERAGE(value, 5) AS ema'
+            ' FROM temperatures.autogen.temperature WHERE time > now()-7m'
+        ).get_points())
+        furnace_status = FurnaceStatus.INCOMPREHENSIBLE
+        if emas:
+            ys = np.array([e['ema'] for e in emas])
+            xs = sm.add_constant(np.array(range(ys.size)), prepend=False)
+            result = sm.OLS(ys, xs).fit()
+            if result.rsquared > 0.8:
+                furnace_status = FurnaceStatus.COOLING_DOWN if result.conf_int()[0][1] < 0 else \
+                    FurnaceStatus.HEATING_UP if result.conf_int()[0][0] > 0 else FurnaceStatus.INCOMPREHENSIBLE
+
+        tag = 'random' if furnace_status == FurnaceStatus.INCOMPREHENSIBLE else \
+            'heat' if furnace_status == FurnaceStatus.HEATING_UP else 'cold'
+        message = 'Как на этой картинке' if furnace_status == FurnaceStatus.INCOMPREHENSIBLE else \
+            'Разгорается' if furnace_status == FurnaceStatus.HEATING_UP else 'Остывает'
+        response = requests.get(f'https://api.giphy.com/v1/gifs/random?api_key={os.getenv("GIPHY_API_KEY")}&tag={tag}')
+        gif_url = response.json()['data']['image_mp4_url']
+
+        results = list(influxdb.query(
+            'SELECT * FROM temperatures.autogen.watcher'
+            ' WHERE chat_id = \'$chat_id\' ORDER BY time DESC LIMIT 1', {'chat_id': str(chat_id)}).get_points())
+        notif_button = MESSAGE_STOP_NOTIFICATIONS if not results or results[-1]['status'] != 'off' \
+            else MESSAGE_START_NOTIFICATIONS
+
+        updater.bot.send_animation(
+            chat_id, gif_url, caption=message,
+            parse_mode='Markdown', reply_markup=ReplyKeyboardMarkup(
+                [[KeyboardButton(MESSAGE_CHECK)],
+                 [KeyboardButton(notif_button)]],
+                resize_keyboard=True, one_time_keyboard=True
+            )
+        )
 
 
 updater.dispatcher.add_handler(MessageHandler(Filters.text & (~Filters.command), on_message))
