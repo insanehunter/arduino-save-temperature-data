@@ -53,8 +53,7 @@ def check_alert():
                 chat_ids_to_send.append(chat_id)
 
         if chat_ids_to_send:
-            response = requests.get(f'https://api.giphy.com/v1/gifs/random'
-                                    f'?api_key={os.getenv("GIPHY_API_KEY")}&tag=cold%20fire&rating=g')
+            response = requests.get(f'https://api.giphy.com/v1/gifs/random?api_key={os.getenv("GIPHY_API_KEY")}')
             gif_url = response.json()['data']['image_mp4_url']
             for chat_id in chat_ids_to_send:
                 updater.bot.send_animation(
@@ -71,7 +70,7 @@ def check_alert():
     if alert_results and alert_results[0]['status'] == 'on':
         influxdb.write_points([f'alert,status=off diff={difference}'], protocol='line', time_precision='ms')
     emas_str = ",".join([f'{e["ema"]:.2f}' for e in emas])
-    return f'Ok (dT={difference:.2f, {emas_str}})'
+    return f'Ok (dT={difference:.2f}, {emas_str})'
 
 
 @app.route('/temperature', methods=['PUT'])
