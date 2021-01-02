@@ -23,6 +23,8 @@ MESSAGE_STOP_NOTIFICATIONS = '🔕 Больше не хочу следить з�
 MESSAGE_START_NOTIFICATIONS = '🔔 Хочу следить за печкой'
 MESSAGE_CHECK = '❕ Как там печка?'
 
+THERMOCOUPLE_OFFSET = 17
+
 
 def check_alert():
     emas = list(influxdb.query(
@@ -164,8 +166,10 @@ def on_message(update, context):
 
         tag = 'random' if furnace_status == FurnaceStatus.INCOMPREHENSIBLE else \
             'heat' if furnace_status == FurnaceStatus.HEATING_UP else 'cold'
-        message = '😒 Как на этой картинке' if furnace_status == FurnaceStatus.INCOMPREHENSIBLE else \
-            '🔥 Разгорается' if furnace_status == FurnaceStatus.HEATING_UP else '❄ Остывает'
+        message = '😒 Как на этой картинке.' if furnace_status == FurnaceStatus.INCOMPREHENSIBLE else \
+            '🔥 Разгорается.' if furnace_status == FurnaceStatus.HEATING_UP else '❄ Остывает.'
+        temperature = emas[-1]['ema'] + THERMOCOUPLE_OFFSET
+        message += f' Температура - {temperature}°C.'
         response = requests.get(f'https://api.giphy.com/v1/gifs/random?api_key={os.getenv("GIPHY_API_KEY")}&tag={tag}')
         gif_url = response.json()['data']['image_mp4_url']
 
