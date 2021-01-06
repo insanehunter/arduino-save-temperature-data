@@ -65,7 +65,7 @@ def check_alert():
         if chat_ids_to_send:
             response = requests.get(f'https://api.giphy.com/v1/gifs/random?api_key={os.getenv("GIPHY_API_KEY")}&tag=go')
             gif_url = response.json()['data']['image_mp4_url']
-            message = f'⚠️ *Пора проверить печку!*. Температура - {temperature:.1f}°C.'
+            message = f'⚠️ *Пора проверить печку!*\nТемпература - {temperature:.1f}°C.'
             for chat_id in chat_ids_to_send:
                 updater.bot.send_animation(
                     chat_id, gif_url, caption=message,
@@ -93,12 +93,13 @@ def check_alert():
             delta = datetime.now().astimezone(tz.tzlocal()) - timestamp
             should_congrat = (delta > timedelta(hours=8))
         if should_congrat:
-            response = requests.get(f'https://api.giphy.com/v1/gifs/random?api_key={os.getenv("GIPHY_API_KEY")}&tag=yes')
+            response = requests.get('https://api.giphy.com/v1/gifs/random'
+                                    f'?api_key={os.getenv("GIPHY_API_KEY")}&tag=yes')
             gif_url = response.json()['data']['image_mp4_url']
             message = f'🔥 Ура! Печка разгорелась до {temperature:.1f}°C.'
             for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
                 updater.bot.send_animation(chat_id, gif_url, caption=message)
-            influxdb.write_points(['congrat value=0'], protocol='line', time_precision='ms')
+            influxdb.write_points([f'congrat value={temperature}'], protocol='line', time_precision='ms')
 
     emas_str = ",".join([f'{e["ema"]:.2f}' for e in emas])
     return f'Ok (R-sq={result.rsquared:.2f}, beta={result.conf_int()[0][0]:.2f}..{result.conf_int()[0][1]:.2f},' \
