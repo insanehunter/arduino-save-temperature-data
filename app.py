@@ -94,9 +94,9 @@ def check_alert():
             should_congrat = (delta > timedelta(hours=8))
         if should_congrat:
             response = requests.get('https://api.giphy.com/v1/gifs/random'
-                                    f'?api_key={os.getenv("GIPHY_API_KEY")}&tag=yes')
+                                    f'?api_key={os.getenv("GIPHY_API_KEY")}&tag=celebration')
             gif_url = response.json()['data']['image_mp4_url']
-            message = f'🔥 Ура! Печка разгорелась до {temperature:.1f}°C.'
+            message = f'🔥🔥🔥🔥🔥🎉🎉🎉🎊🎊🎊\nУра! Печка разгорелась до {temperature:.1f}°C.'
             for chat_id in os.getenv('TELEGRAM_RECIPIENT_CHAT_IDS', '').split(','):
                 updater.bot.send_animation(chat_id, gif_url, caption=message)
             influxdb.write_points([f'congrat value={temperature}'], protocol='line', time_precision='ms')
