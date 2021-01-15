@@ -26,6 +26,11 @@ MESSAGE_CHECK = '❕ Как там печка?'
 THERMOCOUPLE_OFFSET = 17
 
 
+def str_to_timestamp(timestamp_str):
+    format_str = '%Y-%m-%dT%H:%M:%S.%fZ' if len(timestamp_str) > 20 else '%Y-%m-%dT%H:%M:%SZ'
+    return datetime.strptime(timestamp_str, format_str)
+
+
 def check_alert():
     emas = list(influxdb.query(
         'SELECT EXPONENTIAL_MOVING_AVERAGE(value, 5) AS ema'
@@ -49,7 +54,7 @@ def check_alert():
 
         if alert_results and alert_results[0]['status'] == 'off':
             timestamp_str = alert_results[0]['time']
-            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+            timestamp = str_to_timestamp(timestamp_str).replace(tzinfo=timezone.utc)
             delta = datetime.now().astimezone(tz.tzlocal()) - timestamp
             if delta < timedelta(minutes=5):
                 return f'Ok (Alarm suppressed - not enough time passed since previous one: {delta})'
@@ -89,7 +94,7 @@ def check_alert():
         should_congrat = (not congrat_results)
         if congrat_results:
             timestamp_str = congrat_results[0]['time']
-            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+            timestamp = str_to_timestamp(timestamp_str).replace(tzinfo=timezone.utc)
             delta = datetime.now().astimezone(tz.tzlocal()) - timestamp
             should_congrat = (delta > timedelta(hours=8))
         if should_congrat:
@@ -135,7 +140,7 @@ def check():
 def status():
     timestamp_str = next(influxdb.query(
         'SELECT * FROM temperatures.autogen.temperature ORDER BY time DESC LIMIT 1').get_points())['time']
-    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+    timestamp = str_to_timestamp(timestamp_str).replace(tzinfo=timezone.utc)
     time_passed = datetime.now().astimezone(tz.tzlocal()) - timestamp
     if time_passed > timedelta(minutes=15):
         return 'Temperature readings are stale', 500
