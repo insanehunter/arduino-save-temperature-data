@@ -2,11 +2,16 @@
   <dictionary name="iHunter">
     <words>
       <w>congrat</w>
+      <w>docparams</w>
+      <w>docstyle</w>
+      <w>elif</w>
       <w>emas</w>
       <w>giphy</w>
       <w>influxdb</w>
+      <w>mccabe</w>
       <w>notif</w>
       <w>pushsafer</w>
+      <w>pylint</w>
     </words>
   </dictionary>
 </component>
