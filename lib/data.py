@@ -129,9 +129,9 @@ def get_furnace_status(influxdb: InfluxDBClient) -> FurnaceStatus:
         ys = np.array([e['value'] for e in temps])
         xs = sm.add_constant(np.array(range(ys.size)), prepend=False)
         result = sm.OLS(ys, xs).fit()
-        if result.rsquared > 0.8:
-            return FurnaceStatus.COOLING_DOWN if result.conf_int()[0][1] < 0 else \
-                FurnaceStatus.HEATING_UP if result.conf_int()[0][0] > 0 else FurnaceStatus.NOT_TRENDING
+        if result.rsquared >= 0.8:
+            return FurnaceStatus.COOLING_DOWN if result.conf_int()[0].mean() < 0 else \
+                FurnaceStatus.HEATING_UP if result.conf_int()[0].mean() > 0 else FurnaceStatus.NOT_TRENDING
     return FurnaceStatus.NOT_TRENDING
 
 
