@@ -100,4 +100,3 @@ _telegram.dispatcher.add_handler(MessageHandler(Filters.text & (~Filters.command
 
 def start_telegram_bot():
     _telegram.start_polling()
-    return _telegram

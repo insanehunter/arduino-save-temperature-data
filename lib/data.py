@@ -15,7 +15,7 @@ def get_last_alert_status_and_timestamp(influxdb: InfluxDBClient) -> Tuple[bool,
     results = list(influxdb.query(
         'SELECT * FROM temperatures.autogen.alert ORDER BY time DESC LIMIT 1').get_points())
     if not results:
-        return False, datetime.utcfromtimestamp(0)
+        return False, datetime.utcfromtimestamp(0).replace(tzinfo=timezone.utc)
     return results[-1]['status'] != 'off', _parse_timestamp_str(results[-1]['time'])
 
 
@@ -54,7 +54,7 @@ def get_last_measurement_timestamp(influxdb: InfluxDBClient) -> datetime:
     results = list(influxdb.query(
         'SELECT * FROM temperatures.autogen.temperature ORDER BY time DESC LIMIT 1').get_points())
     if not results:
-        return datetime.utcfromtimestamp(0)
+        return datetime.utcfromtimestamp(0).replace(tzinfo=timezone.utc)
     return _parse_timestamp_str(results[-1]['time'])
 
 
@@ -69,30 +69,31 @@ def get_current_temperature(influxdb: InfluxDBClient) -> float:
         'SELECT EXPONENTIAL_MOVING_AVERAGE(value, 5) AS ema'
         ' FROM temperatures.autogen.temperature WHERE time > now()-7m'
     ).get_points())
+    if not emas:
+        return 0
     return _measurement_to_temperature(emas[-1]['ema'])
 
 
 def get_furnace_status(influxdb: InfluxDBClient) -> FurnaceStatus:
     emas = list(influxdb.query(
         'SELECT EXPONENTIAL_MOVING_AVERAGE(value, 5) AS ema'
-        ' FROM temperatures.autogen.temperature WHERE time > now()-7m'
+        ' FROM temperatures.autogen.temperature WHERE time > now()-3m'
     ).get_points())
-    furnace_status = FurnaceStatus.NOT_TRENDING
     if emas:
         ys = np.array([e['ema'] for e in emas])
         xs = sm.add_constant(np.array(range(ys.size)), prepend=False)
         result = sm.OLS(ys, xs).fit()
         if result.rsquared > 0.8:
-            furnace_status = FurnaceStatus.COOLING_DOWN if result.conf_int()[0][1] < 0 else \
+            return FurnaceStatus.COOLING_DOWN if result.conf_int()[0][1] < 0 else \
                 FurnaceStatus.HEATING_UP if result.conf_int()[0][0] > 0 else FurnaceStatus.NOT_TRENDING
-    return furnace_status
+    return FurnaceStatus.NOT_TRENDING
 
 
 def get_last_congrat_timestamp(influxdb: InfluxDBClient) -> datetime:
     results = list(influxdb.query(
         'SELECT * FROM temperatures.autogen.congrat ORDER BY time DESC LIMIT 1').get_points())
     if not results:
-        return datetime.utcfromtimestamp(0)
+        return datetime.utcfromtimestamp(0).replace(tzinfo=timezone.utc)
     return _parse_timestamp_str(results[-1]['time'])
 
 
