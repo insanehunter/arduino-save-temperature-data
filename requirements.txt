@@ -4,6 +4,7 @@ python-dotenv~=0.15.0
 statsmodels~=0.12.1
 requests~=2.25.1
 influxdb~=5.3.1
+pykalman~=0.9.5
 pylint~=2.6.0
 numpy~=1.19.5
 Flask~=1.1.2
