@@ -2,12 +2,15 @@ import os
 from datetime import datetime, timedelta
 
 from dateutil.tz import tz
+from dotenv import load_dotenv
 from flask import Blueprint, request
 from influxdb import InfluxDBClient
 
 import lib.data
 from lib.giphy import Giphy
 from lib.telegram_bot import send_gif_message, KeyboardType
+
+load_dotenv()
 
 bp = Blueprint('temperature', __name__)
 
