@@ -2,6 +2,7 @@ import os
 from enum import Enum
 from typing import Optional
 
+from dotenv import load_dotenv
 from influxdb import InfluxDBClient
 from telegram import ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Updater, MessageHandler, Filters
@@ -9,6 +10,8 @@ from telegram.ext import Updater, MessageHandler, Filters
 from lib.data import set_watcher_enabled, get_watcher_enabled, get_furnace_status, FurnaceStatus, \
     get_current_temperature
 from lib.giphy import Giphy
+
+load_dotenv()
 
 MESSAGE_STOP_NOTIFICATIONS = '🔕 Больше не хочу следить за печкой'
 MESSAGE_START_NOTIFICATIONS = '🔔 Хочу следить за печкой'
