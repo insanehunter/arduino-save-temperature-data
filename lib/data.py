@@ -161,4 +161,4 @@ def _parse_timestamp_str(timestamp_str: str) -> datetime:
 
 
 def _measurement_to_temperature(measurement: float) -> float:
-    return measurement + 17
+    return measurement
